@@ -1,0 +1,233 @@
+Imports System.Data.OleDb
+
+Public Class Form1
+    Dim dbPath As String = "C:\Users\Emerson\Documents\BASE DE DATOS DE BIBLIOTECA.accdb"
+
+    Private Sub FormLibros_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        CargarLibros()
+    End Sub
+
+    Private Sub CargarLibros()
+        Throw New NotImplementedException
+    End Sub
+
+    Private Sub btnAgregar_Click(sender As Object, e As EventArgs) Handles btnAgregar.Click
+        Collection.Open()
+        Dim cmd As New OleDbCommand("INSERT INTO Libros (TITULO,AUTOR,EDITORIAL,AÑO,DISPONIBLE) VALUES (@TITULO,@AUTOR,@aEDITORIAL@AÑO,@DISPONIBLE,@DISPONIBLE)")
+        cmd.Parameters.AddWithValue("@t", txttitulo.Text)
+        cmd.Parameters.AddWithValue("@a", txtautor.Text)
+        cmd.Parameters.AddWithValue("@e", txtEditorial.Text)
+        cmd.Parameters.AddWithValue("@an", Val(txtaño.Text))
+        cmd.ExecuteNonQuery()
+        Collection.Close()
+        CargarLibros()
+    End Sub
+
+    Private Sub btnEditar_Click(sender As Object, e As EventArgs) Handles btnEditar.Click
+        Collection.Open()
+        Dim cmd As New OleDbCommand("UPDATE Libros SET Titulo=@TITULO,Autor=@AUTOR,Editorial=@EDITORIAL,AÑO=@AÑO,DISPONIBLE=@DISPONIBLE", Collection)
+        cmd.Parameters.AddWithValue("@TITULO", txttitulo.Text)
+        cmd.Parameters.AddWithValue("@AUTOR", txtautor.Text)
+        cmd.Parameters.AddWithValue("@EDITORIAL", txtEditorial.Text)
+        cmd.Parameters.AddWithValue("@AÑO", Val(txtaño.Text))
+        cmd.ExecuteNonQuery()
+        Collection.Close()
+        CargarLibros()
+    End Sub
+
+    Private Sub btnEliminar_Click(sender As Object, e As EventArgs) Handles btnEliminar.Click
+        Collection.Open()
+        Dim cmd As New OleDbCommand("DELETE FROM Libros WHERE Codigo=@c", Collection)
+        cmd.Parameters.AddWithValue("@c", Text.Encoding.Text)
+        cmd.ExecuteNonQuery()
+        Collection.Close()
+        CargarLibros()
+    End Sub
+
+    Private Sub btnCargar_Click(sender As Object, e As EventArgs) Handles btnCargar.Click
+        CargarLibros()
+    End Sub
+
+    Private Function Collection() As Object
+        Throw New NotImplementedException
+    End Function
+
+
+    Private Sub PRESTAMOS_CellContentClick(sender As Object, e As DataGridViewCellEventArgs) Handles PRESTAMOS.CellContentClick
+        CargarPrestamos()
+        CargarCombos()
+    End Sub
+
+    Private Sub CargarPrestamos()
+        Collection.Open()
+        Dim adaptador As New OleDbDataAdapter("SELECT * FROM Prestamos", Collection)
+        Dim tabla As New DataTable
+        adaptador.Fill(tabla)
+        dgvPrestamos.DataSource = tabla
+        Collection.Close()
+    End Sub
+
+    Private Sub CargarCombos()
+        'Usuarios
+        Collection.Open()
+        Dim cmdUsuarios As New OleDbCommand("SELECT Codigo, Nombre FROM Usuarios", Collection)
+        Dim readerUsuarios = cmdUsuarios.ExecuteReader()
+        cmbUsuario.Items.Clear()
+        While readerUsuarios.Read()
+            cmbUsuario.Items.Add(readerUsuarios("Codigo") & " - " & readerUsuarios("Nombre"))
+        End While
+        Collection.Close()
+
+        'Libros disponibles
+        Collection.Open()
+        Dim cmdLibros As New OleDbCommand("SELECT Codigo, Titulo FROM Libros WHERE Prestado=0", Collection)
+        Dim readerLibros = cmdLibros.ExecuteReader()
+        cmbLibro.Items.Clear()
+        While readerLibros.Read()
+            cmbLibro.Items.Add(readerLibros("Codigo") & " - " & readerLibros("Titulo"))
+        End While
+        Collection.Close()
+    End Sub
+
+    Private Sub btnPrestar_Click(sender As Object, e As EventArgs) Handles btnPrestar.Click
+        If cmbUsuario.SelectedIndex = -1 Or cmbLibro.SelectedIndex = -1 Then
+            MessageBox.Show("Seleccione usuario y libro")
+            Exit Sub
+        End If
+
+        Dim usuarioCodigo As String = cmbUsuario.SelectedItem.ToString().Split("-"c)(0).Trim()
+        Dim libroCodigo As String = cmbLibro.SelectedItem.ToString().Split("-"c)(0).Trim()
+
+        Collection.Open()
+        'Insertar préstamo
+        Dim cmd As New OleDbCommand("INSERT INTO Prestamos (CODIGO_DE_USUARIO,CODIGO_DE_LIBRO,FECHA_DE_SALIDA,FECHA_DE_DEVOLUCION,) VALUES (@u,@l,@fs,@fd,)", conexion)
+        cmd.Parameters.AddWithValue("@u", usuarioCodigo)
+        cmd.Parameters.AddWithValue("@l", libroCodigo)
+        cmd.Parameters.AddWithValue("@fs", dtpSalida.Value)
+        cmd.Parameters.AddWithValue("@fd", dtpDevolucion.Value)
+        cmd.ExecuteNonQuery()
+
+        'Actualizar libro a prestado
+        Dim cmdUpdate As New OleDbCommand("UPDATE Libros SET Prestado=1 WHERE Codigo=@c", Collection)
+        cmdUpdate.Parameters.AddWithValue("@c", libroCodigo)
+        cmdUpdate.ExecuteNonQuery()
+        Collection.Close()
+
+        CargarPrestamos()
+        CargarCombos()
+    End Sub
+
+    Private Sub btnDevolver_Click(sender As Object, e As EventArgs) Handles btnDevolver.Click
+        If dgvPrestamos.CurrentRow Is Nothing Then
+            MessageBox.Show("Seleccione un préstamo en la lista")
+            Exit Sub
+        End If
+
+        Dim idPrestamo As Integer = dgvPrestamos.CurrentRow.Cells("IdPrestamo").Value
+        Dim libroCodigo As String = dgvPrestamos.CurrentRow.Cells("CodigoLibro").Value.ToString()
+
+        Collection.Open()
+        'Marcar préstamo como devuelto
+        Dim cmd As New OleDbCommand("UPDATE Prestamos SET Activo=0 WHERE IdPrestamo=@id", Collection)
+        cmd.Parameters.AddWithValue("@id", idPrestamo)
+        cmd.ExecuteNonQuery()
+
+        'Marcar libro como disponible
+        Dim cmdUpdate As New OleDbCommand("UPDATE Libros SET Prestado=0 WHERE Codigo=@c", Collection)
+        cmdUpdate.Parameters.AddWithValue("@c", libroCodigo)
+        cmdUpdate.ExecuteNonQuery()
+        Collection.Close()
+
+        CargarPrestamos()
+        CargarCombos()
+    End Sub
+
+    Private Sub btnCargar_Click(sender As Object, e As EventArgs) Handles btnCargar.Click
+        CargarPrestamos()
+        CargarCombos()
+    End Sub
+
+    End Sub
+    Private Sub USUARIOS_CellContentClick(sender As Object, e As DataGridViewCellEventArgs) Handles USUARIOS.CellContentClick
+        CargarUsuarios()
+    End Sub
+    Private Sub CargarUsuarios()
+        Collection.Open()
+        Dim adaptador As New OleDbDataAdapter("SELECT * FROM Usuarios", Collection)
+        Dim tabla As New DataTable
+        adaptador.Fill(tabla)
+        dgvUsuarios.DataSource = tabla
+        Collection.Close()
+    End Sub
+
+    Private Sub btnAgregar_Click(sender As Object, e As EventArgs) Handles btnAgregar.Click
+        Collection.Open()
+        Dim cmd As New OleDbCommand("INSERT INTO Usuarios (NOMBRE,DIRECCION,TELEFONO) VALUES (@c,@n,@d,@t)", Collection)
+        cmd.Parameters.AddWithValue("@n", txtnombre.Text)
+        cmd.Parameters.AddWithValue("@d", txtdireccion.Text)
+        cmd.Parameters.AddWithValue("@t", txttelefono.Text)
+        cmd.ExecuteNonQuery()
+        Collection.Close()
+        CargarUsuarios()
+    End Sub
+
+    Private Sub btnEditar_Click(sender As Object, e As EventArgs) Handles btnEditar.Click
+        Collection.Open()
+        Dim cmd As New OleDbCommand("UPDATE Usuarios SET NOMBRE=@n,DIRECCION=@d,TELEFONO=@t,", Collection)
+        cmd.Parameters.AddWithValue("@n", txtnombre.Text)
+        cmd.Parameters.AddWithValue("@d", txtdireccion.Text)
+        cmd.Parameters.AddWithValue("@t", txttelefono.Text)
+        cmd.ExecuteNonQuery()
+        Collection.Close()
+        CargarUsuarios()
+    End Sub
+
+    Private Sub btnEliminar_Click(sender As Object, e As EventArgs) Handles btnEliminar.Click
+        Collection.Open()
+        cmd.ExecuteNonQuery()
+        Collection.Close()
+        CargarUsuarios()
+    End Sub
+
+    Private Sub btnCargar_Click(sender As Object, e As EventArgs) Handles btnCargar.Click
+        CargarUsuarios()
+
+    End Sub
+    Private Function cmd() As Object
+        Throw New NotImplementedException
+    End Function
+
+    Private Function dgvUsuarios() As Object
+        Throw New NotImplementedException
+    End Function
+
+    Private Function dgvPrestamos() As Object
+        Throw New NotImplementedException
+    End Function
+
+    Private Function cmbUsuario() As Object
+        Throw New NotImplementedException
+    End Function
+
+    Private Function cmbLibro() As Object
+        Throw New NotImplementedException
+    End Function
+
+    Private Function dtpSalida() As Object
+        Throw New NotImplementedException
+    End Function
+
+    Private Function dtpDevolucion() As Object
+        Throw New NotImplementedException
+    End Function
+
+End Class
+Private Sub CargarLibros()
+    conexion.Open()
+    Dim adaptador As New OleDbDataAdapter("SELECT * FROM Libros", conexion)
+    Dim tabla As New DataTable
+    adaptador.Fill(tabla)
+    dgvLibros.DataSource = tabla
+    conexion.Close()
+End Sub
+
